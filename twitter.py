@@ -20,8 +20,8 @@ def compute_scaled_follower_matrix(follower_matrix):
     Compute a scaled down follower matrix where edges are scaled down by the number of other users a user follows.
     """
     num_following = follower_matrix.sum(axis=1, keepdims=True)
-    scaling = np.maximum(num_following, 1)  # Turn 0s into 1s before dividing
-    return follower_matrix / scaling
+    return np.divide(follower_matrix, num_following, where=num_following != 0)
+
 
 def compute_type_matrices(follower_matrix, ps, scale_by_following=True):
     if scale_by_following:
@@ -38,6 +38,7 @@ def compute_limit_matrices(type_matrices):
 def compute_engagement_vectors(limit_matrices, ps):
     return ps @ limit_matrices
 
+
 def compute_uniform_engagement(engagement_vectors):
     """Compute engagement from injecting uniform tweets to each user."""
     num_types, *_ = engagement_vectors.shape
@@ -53,10 +54,12 @@ def lp_relaxation_lower_bound(type_matrices, engagement_vectors, diversity):
     """Compute Lower bound based on LP Relaxation. Only works if incoming edge sums are at most 1 for each user."""
     incoming_edge_sums = type_matrices.sum(2)  # TYPES x USERS
     spend_on_diversity = (1 - incoming_edge_sums) * diversity  # TYPES X USERS
-    remaining_budget = 1 - spend_on_diversity.sum(0)  # USERS
-    diversity_engagement = (spend_on_diversity[:, np.newaxis, :] * engagement_vectors).sum()
-    optimal_engagement_per_user = engagement_vectors.max(0).squeeze()  # USERS
-    remaining_engagement = (remaining_budget * optimal_engagement_per_user).sum()
+    spend_on_diversity_per_user = spend_on_diversity.sum(0)  # USERS
+    remaining_budget = 1 - spend_on_diversity_per_user  # USERS
+    engagement_vectors_squeezed = engagement_vectors.squeeze(1)  # TYPES x USERS
+    diversity_engagement = (spend_on_diversity * engagement_vectors_squeezed).sum()  # scalar
+    optimal_engagement_per_user = engagement_vectors_squeezed.max(0)  # USERS
+    remaining_engagement = (remaining_budget * optimal_engagement_per_user).sum()  # scalar
     return diversity_engagement + remaining_engagement
 
 
@@ -111,8 +114,8 @@ def run_once(ps, type_matrices, diversity_steps=10):
     plt.plot([0, 1 / num_types], [1, lower_bound_engagement])
     plt.plot([0, 1 / num_types], [1, uniform_engagement])
     plt.plot(diversities, theoretical_lower_bound)
-    print((1 - np.array(engagements[1:])) / diversities[1:] / (num_types - 1))
-    print(1 - lower_bound_engagement * num_types / (num_types - 1))
+    print((1 - np.array(engagements[1:])) / diversities[1:])
+    print((1 - lower_bound_engagement) * num_types)
     plt.legend(['optimal', 'lower bound', 'uniform', 'theoretical lower bound'])
     plt.show()
 
