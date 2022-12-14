@@ -20,14 +20,17 @@ def compute_scaled_follower_matrix(follower_matrix):
     Compute a scaled down follower matrix where edges are scaled down by the number of other users a user follows.
     """
     num_following = follower_matrix.sum(axis=1, keepdims=True)
-    return np.divide(follower_matrix, num_following, where=num_following != 0)
+    to_scale = np.maximum(num_following, 1)  # Set 0s to 1s before dividing
+    return follower_matrix / to_scale
 
 
 def compute_type_matrices(follower_matrix, ps, scale_by_following=True):
     if scale_by_following:
-        follower_matrix = compute_scaled_follower_matrix(follower_matrix)
+        adjusted_follower_matrix = compute_scaled_follower_matrix(follower_matrix)
+    else:
+        adjusted_follower_matrix = follower_matrix
     # Numpy broadcasts to make this a TYPES x USERS x USERS
-    return ps * follower_matrix
+    return ps * adjusted_follower_matrix
 
 
 def compute_limit_matrices(type_matrices):
@@ -105,10 +108,10 @@ def run_once(ps, type_matrices, diversity_steps=10):
 
     uniform_engagement = compute_uniform_engagement(engagement_vectors) / opt
 
+    lower_bound_engagement = lp_relaxation_lower_bound(type_matrices, engagement_vectors, 1 / num_types) / opt
+
     engagements = [maximize_engagement(limit_matrices, engagement_vectors, diversity) / opt for diversity in
                    diversities]
-
-    lower_bound_engagement = lp_relaxation_lower_bound(type_matrices, engagement_vectors, 1 / num_types) / opt
 
     plt.plot(diversities, engagements)
     plt.plot([0, 1 / num_types], [1, lower_bound_engagement])
@@ -123,7 +126,10 @@ def run_once(ps, type_matrices, diversity_steps=10):
 def main():
     users = 10
 
-    follower_matrix = np.random.binomial(1, .5, (users, users))
+    follower_matrix = np.zeros((users, users))
+    follower_matrix[1, 0] = 1
+    follower_matrix[2, 0] = 1
+    follower_matrix[1, 2] = 1
     np.fill_diagonal(follower_matrix, 0)
 
     ps = np.ones((3, 1, users)) * np.array([.9, .4, .3])[:, np.newaxis, np.newaxis]
