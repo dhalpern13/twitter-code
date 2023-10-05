@@ -2,8 +2,12 @@ import gurobipy as gp
 import numpy as np
 from gurobipy import GRB
 from matplotlib import pyplot as plt
+from tqdm import tqdm
+# gp.setParam(GRB.Param.LogToConsole, 0)
+gp.setParam(GRB.Param.Method, 2)
+gp.setParam(GRB.Param.Crossover, 0)
+gp.setParam(GRB.Param.Threads, 1)
 
-gp.setParam(GRB.Param.LogToConsole, 0)
 
 """
 Convention:
@@ -66,6 +70,16 @@ def lp_relaxation_lower_bound(type_matrices, engagement_vectors, diversity):
     return diversity_engagement + remaining_engagement
 
 
+def lp_relaxation_lower_bound2(type_matrices, max_user_engagement, diversity, p_sum, num_types):
+    """Compute Lower bound based on LP Relaxation. Only works if incoming edge sums are at most 1 for each user."""
+    diversity_engagement = p_sum * diversity  # scalar
+    incoming_edge_sums = type_matrices.sum((0, 2))  # USERS
+    spend_on_diversity = (num_types - incoming_edge_sums) * diversity  # USERS
+    remaining_budget = 1 - spend_on_diversity  # USERS
+    remaining_engagement = (remaining_budget * max_user_engagement).sum()  # scalar
+    return diversity_engagement + remaining_engagement
+
+
 def maximize_engagement(limit_matrices, engagement_vectors, diversity):
     """Run LP to compute optimal engagement subject to diversity."""
     num_types, num_users, _ = limit_matrices.shape
@@ -92,51 +106,45 @@ def maximize_engagement(limit_matrices, engagement_vectors, diversity):
     return model.getObjective().getValue()
 
 
-def run_once(ps, type_matrices, diversity_steps=10):
+def run_once(ps, type_matrices, diversity_steps=10, save_fig=None):
     """
     Run a single instance and plot the result.
     """
+    print('Computing matrix inverses...')
     limit_matrices = compute_limit_matrices(type_matrices)
+
+    print('Computing preliminaries...')
     engagement_vectors = compute_engagement_vectors(limit_matrices, ps)
 
     num_types, *_ = ps.shape
 
-    diversities = np.arange(diversity_steps + 1) / diversity_steps / num_types
-    theoretical_lower_bound = (1 - diversities * (num_types - 1))
+    diversities = (np.arange(diversity_steps) + 1) / diversity_steps / num_types
+    theoretical_lower_bound = (1 - (num_types - 1) / num_types)
 
+    print('Computing opt...')
     opt = opt_no_diversity(engagement_vectors)
 
+    print('Computing uniform...')
     uniform_engagement = compute_uniform_engagement(engagement_vectors) / opt
 
-    lower_bound_engagement = lp_relaxation_lower_bound(type_matrices, engagement_vectors, 1 / num_types) / opt
+    # print('Computing lower bound...')
+    # lower_bound_engagement = lp_relaxation_lower_bound(type_matrices, engagement_vectors, 1 / num_types) / opt
+
+    print('Computing diverse opts...')
 
     engagements = [maximize_engagement(limit_matrices, engagement_vectors, diversity) / opt for diversity in
-                   diversities]
-
-    plt.plot(diversities, engagements)
-    plt.plot([0, 1 / num_types], [1, lower_bound_engagement])
+                   tqdm(diversities)]
+    print(engagements)
+    print('Plotting...')
+    plt.clf()
+    plt.plot([0] + list(diversities), [1] + list(engagements))
+    # plt.plot([0, 1 / num_types], [1, lower_bound_engagement])
     plt.plot([0, 1 / num_types], [1, uniform_engagement])
-    plt.plot(diversities, theoretical_lower_bound)
-    print((1 - np.array(engagements[1:])) / diversities[1:])
-    print((1 - lower_bound_engagement) * num_types)
-    plt.legend(['optimal', 'lower bound', 'uniform', 'theoretical lower bound'])
-    plt.show()
-
-
-def main():
-    users = 10
-
-    follower_matrix = np.zeros((users, users))
-    follower_matrix[1, 0] = 1
-    follower_matrix[2, 0] = 1
-    follower_matrix[1, 2] = 1
-    np.fill_diagonal(follower_matrix, 0)
-
-    ps = np.ones((3, 1, users)) * np.array([.9, .4, .3])[:, np.newaxis, np.newaxis]
-    type_matrices = compute_type_matrices(follower_matrix, ps)
-
-    run_once(ps, type_matrices, diversity_steps=10)
-
-
-if __name__ == '__main__':
-    main()
+    plt.plot([0, 1 / num_types], [1, theoretical_lower_bound])
+    # plt.legend(['optimal', 'lower bound', 'uniform', 'theoretical lower bound'])
+    plt.legend(['optimal', 'uniform', 'theoretical lower bound'])
+    if save_fig is None:
+        plt.show()
+    else:
+        plt.savefig(save_fig)
+    return engagements
