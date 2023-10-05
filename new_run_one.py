@@ -2,6 +2,7 @@ from itertools import product
 from sys import argv
 
 import numpy as np
+from tqdm import tqdm
 
 from twitter import compute_type_matrices, compute_limit_matrices, compute_engagement_vectors, \
     opt_no_diversity, maximize_engagement
@@ -37,13 +38,12 @@ opt = opt_no_diversity(engagement_vectors)
 
 num_types, *_ = ps.shape
 
-for step in range(1, 11):
+for step in tqdm(range(1, 11)):
     diversity = step / 40
 
     print(f'Computing divers opts {step}...')
 
-    # engagement = maximize_engagement(limit_matrices, engagement_vectors, diversity)
-    engagement = np.random.uniform(0, 1)
+    engagement = maximize_engagement(limit_matrices, engagement_vectors, diversity)
     print(engagement)
 
     with open(f'diversities/{ps_name}-{is_set_str}-{modify_val}-{step}.txt', 'w') as f:
