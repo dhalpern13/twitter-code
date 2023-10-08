@@ -2,7 +2,7 @@ from itertools import product
 from math import ceil
 from os import system
 panes_per_window = 9
-instances = 35
+instances = 42
 windows = ceil(instances / panes_per_window)
 
 for window in range(windows):

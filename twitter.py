@@ -3,7 +3,7 @@ import numpy as np
 from gurobipy import GRB
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-# gp.setParam(GRB.Param.LogToConsole, 0)
+gp.setParam(GRB.Param.LogToConsole, 0)
 gp.setParam(GRB.Param.Method, 2)
 gp.setParam(GRB.Param.Crossover, 0)
 gp.setParam(GRB.Param.Threads, 1)
