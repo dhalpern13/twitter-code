@@ -35,8 +35,7 @@ print('Computing preliminaries...')
 engagement_vectors = compute_engagement_vectors(limit_matrices, ps)
 
 print('Computing opt...')
-# opt = opt_no_diversity(engagement_vectors)
-opt = 30
+opt = opt_no_diversity(engagement_vectors)
 
 num_types, *_ = ps.shape
 
@@ -45,8 +44,7 @@ for step in tqdm(range(1, 11)):
 
     print(f'Computing divers opts {step}...')
 
-    # engagement = maximize_engagement(limit_matrices, engagement_vectors, diversity)
-    engagement = 20
+    engagement = maximize_engagement(limit_matrices, engagement_vectors, diversity)
     print(engagement)
 
     with open(f'diversities/{dataset}-{ps_name}-{is_set_str}-{modify_val}-{step}.txt', 'w') as f:
