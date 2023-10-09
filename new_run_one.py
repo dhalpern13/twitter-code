@@ -40,7 +40,7 @@ opt = opt_no_diversity(engagement_vectors)
 num_types, *_ = ps.shape
 
 for step in tqdm(range(1, 11)):
-    diversity = step / 40
+    diversity = step / (10 * num_types)
 
     print(f'Computing divers opts {step}...')
 
